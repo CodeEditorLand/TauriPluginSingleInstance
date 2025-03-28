@@ -1,12 +1,12 @@
 {
-	"name": "emit-event",
-	"description": "",
-	"main": "index.js",
-	"scripts": {
-		"tauri": "tauri"
-	},
 	"dependencies": {},
+	"description": "",
 	"devDependencies": {
 		"@codeeditorland/cli": "0.0.1"
+	},
+	"main": "index.js",
+	"name": "emit-event",
+	"scripts": {
+		"tauri": "tauri"
 	}
 }
