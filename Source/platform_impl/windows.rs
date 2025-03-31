@@ -3,10 +3,7 @@
 use std::ffi::CStr;
 
 use tauri::{
-	AppHandle,
-	Manager,
-	RunEvent,
-	Runtime,
+	AppHandle, Manager, RunEvent, Runtime,
 	plugin::{self, TauriPlugin},
 };
 use windows_sys::Win32::{
@@ -17,26 +14,9 @@ use windows_sys::Win32::{
 		Threading::{CreateMutexW, ReleaseMutex},
 	},
 	UI::WindowsAndMessaging::{
-		self as w32wm,
-		CreateWindowExW,
-		DefWindowProcW,
-		DestroyWindow,
-		FindWindowW,
-		GWL_STYLE,
-		GWL_USERDATA,
-		RegisterClassExW,
-		SendMessageW,
-		WINDOW_LONG_PTR_INDEX,
-		WM_COPYDATA,
-		WM_DESTROY,
-		WNDCLASSEXW,
-		WS_EX_LAYERED,
-		WS_EX_NOACTIVATE,
-		WS_EX_TOOLWINDOW,
-		WS_EX_TRANSPARENT,
-		WS_OVERLAPPED,
-		WS_POPUP,
-		WS_VISIBLE,
+		self as w32wm, CreateWindowExW, DefWindowProcW, DestroyWindow, FindWindowW, GWL_STYLE, GWL_USERDATA,
+		RegisterClassExW, SendMessageW, WINDOW_LONG_PTR_INDEX, WM_COPYDATA, WM_DESTROY, WNDCLASSEXW, WS_EX_LAYERED,
+		WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_OVERLAPPED, WS_POPUP, WS_VISIBLE,
 	},
 };
 
@@ -45,9 +25,9 @@ use crate::SingleInstanceCallback;
 struct MutexHandle(isize);
 struct TargetWindowHandle(isize);
 
-const WMCOPYDATA_SINGLE_INSTANCE_DATA:usize = 1542;
+const WMCOPYDATA_SINGLE_INSTANCE_DATA: usize = 1542;
 
-pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
+pub fn init<R: Runtime>(f: Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 	plugin::Builder::new("single-instance")
 		.setup(|app| {
 			let id = &app.config().tauri.bundle.identifier;
@@ -58,8 +38,7 @@ pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 
 			let mutex_name = encode_wide(format!("{}-sim", id));
 
-			let hmutex =
-				unsafe { CreateMutexW(std::ptr::null(), true.into(), mutex_name.as_ptr()) };
+			let hmutex = unsafe { CreateMutexW(std::ptr::null(), true.into(), mutex_name.as_ptr()) };
 
 			if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
 				unsafe {
@@ -68,19 +47,16 @@ pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 					if hwnd != 0 {
 						let data = format!(
 							"{}|{}\0",
-							std::env::current_dir()
-								.unwrap_or_default()
-								.to_str()
-								.unwrap_or_default(),
+							std::env::current_dir().unwrap_or_default().to_str().unwrap_or_default(),
 							std::env::args().collect::<Vec<String>>().join("|")
 						);
 
 						let bytes = data.as_bytes();
 
 						let cds = COPYDATASTRUCT {
-							dwData:WMCOPYDATA_SINGLE_INSTANCE_DATA,
-							cbData:bytes.len() as _,
-							lpData:bytes.as_ptr() as _,
+							dwData: WMCOPYDATA_SINGLE_INSTANCE_DATA,
+							cbData: bytes.len() as _,
+							lpData: bytes.as_ptr() as _,
 						};
 
 						SendMessageW(hwnd, WM_COPYDATA, 0, &cds as *const _ as _);
@@ -93,13 +69,7 @@ pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 
 				let hwnd = create_event_target_window::<R>(&class_name, &window_name);
 
-				unsafe {
-					SetWindowLongPtrW(
-						hwnd,
-						GWL_USERDATA,
-						Box::into_raw(Box::new((app.clone(), f))) as _,
-					)
-				};
+				unsafe { SetWindowLongPtrW(hwnd, GWL_USERDATA, Box::into_raw(Box::new((app.clone(), f))) as _) };
 
 				app.manage(TargetWindowHandle(hwnd));
 			}
@@ -114,7 +84,7 @@ pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 		.build()
 }
 
-pub fn destroy<R:Runtime, M:Manager<R>>(manager:&M) {
+pub fn destroy<R: Runtime, M: Manager<R>>(manager: &M) {
 	if let Some(hmutex) = manager.try_state::<MutexHandle>() {
 		unsafe {
 			ReleaseMutex(hmutex.0);
@@ -128,14 +98,13 @@ pub fn destroy<R:Runtime, M:Manager<R>>(manager:&M) {
 	}
 }
 
-unsafe extern "system" fn single_instance_window_proc<R:Runtime>(
-	hwnd:HWND,
-	msg:u32,
-	wparam:WPARAM,
-	lparam:LPARAM,
+unsafe extern "system" fn single_instance_window_proc<R: Runtime>(
+	hwnd: HWND,
+	msg: u32,
+	wparam: WPARAM,
+	lparam: LPARAM,
 ) -> LRESULT {
-	let data_ptr = GetWindowLongPtrW(hwnd, GWL_USERDATA)
-		as *mut (AppHandle<R>, Box<SingleInstanceCallback<R>>);
+	let data_ptr = GetWindowLongPtrW(hwnd, GWL_USERDATA) as *mut (AppHandle<R>, Box<SingleInstanceCallback<R>>);
 
 	let (app_handle, callback) = &mut *data_ptr;
 
@@ -167,21 +136,21 @@ unsafe extern "system" fn single_instance_window_proc<R:Runtime>(
 	}
 }
 
-fn create_event_target_window<R:Runtime>(class_name:&[u16], window_name:&[u16]) -> HWND {
+fn create_event_target_window<R: Runtime>(class_name: &[u16], window_name: &[u16]) -> HWND {
 	unsafe {
 		let class = WNDCLASSEXW {
-			cbSize:std::mem::size_of::<WNDCLASSEXW>() as u32,
-			style:0,
-			lpfnWndProc:Some(single_instance_window_proc::<R>),
-			cbClsExtra:0,
-			cbWndExtra:0,
-			hInstance:GetModuleHandleW(std::ptr::null()),
-			hIcon:0,
-			hCursor:0,
-			hbrBackground:0,
-			lpszMenuName:std::ptr::null(),
-			lpszClassName:class_name.as_ptr(),
-			hIconSm:0,
+			cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+			style: 0,
+			lpfnWndProc: Some(single_instance_window_proc::<R>),
+			cbClsExtra: 0,
+			cbWndExtra: 0,
+			hInstance: GetModuleHandleW(std::ptr::null()),
+			hIcon: 0,
+			hCursor: 0,
+			hbrBackground: 0,
+			lpszMenuName: std::ptr::null(),
+			lpszClassName: class_name.as_ptr(),
+			hIconSm: 0,
 		};
 
 		RegisterClassExW(&class);
@@ -224,7 +193,7 @@ fn create_event_target_window<R:Runtime>(class_name:&[u16], window_name:&[u16]) 
 	}
 }
 
-pub fn encode_wide(string:impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
+pub fn encode_wide(string: impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
 	std::os::windows::prelude::OsStrExt::encode_wide(string.as_ref())
 		.chain(std::iter::once(0))
 		.collect()
@@ -232,24 +201,24 @@ pub fn encode_wide(string:impl AsRef<std::ffi::OsStr>) -> Vec<u16> {
 
 #[cfg(target_pointer_width = "32")]
 #[allow(non_snake_case)]
-unsafe fn SetWindowLongPtrW(hwnd:HWND, index:WINDOW_LONG_PTR_INDEX, value:isize) -> isize {
+unsafe fn SetWindowLongPtrW(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX, value: isize) -> isize {
 	w32wm::SetWindowLongW(hwnd, index, value as _) as _
 }
 
 #[cfg(target_pointer_width = "64")]
 #[allow(non_snake_case)]
-unsafe fn SetWindowLongPtrW(hwnd:HWND, index:WINDOW_LONG_PTR_INDEX, value:isize) -> isize {
+unsafe fn SetWindowLongPtrW(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX, value: isize) -> isize {
 	w32wm::SetWindowLongPtrW(hwnd, index, value)
 }
 
 #[cfg(target_pointer_width = "32")]
 #[allow(non_snake_case)]
-unsafe fn GetWindowLongPtrW(hwnd:HWND, index:WINDOW_LONG_PTR_INDEX) -> isize {
+unsafe fn GetWindowLongPtrW(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX) -> isize {
 	w32wm::GetWindowLongW(hwnd, index) as _
 }
 
 #[cfg(target_pointer_width = "64")]
 #[allow(non_snake_case)]
-unsafe fn GetWindowLongPtrW(hwnd:HWND, index:WINDOW_LONG_PTR_INDEX) -> isize {
+unsafe fn GetWindowLongPtrW(hwnd: HWND, index: WINDOW_LONG_PTR_INDEX) -> isize {
 	w32wm::GetWindowLongPtrW(hwnd, index)
 }

@@ -3,11 +3,7 @@
 use std::sync::Arc;
 
 use tauri::{
-	AppHandle,
-	Config,
-	Manager,
-	RunEvent,
-	Runtime,
+	AppHandle, Config, Manager, RunEvent, Runtime,
 	plugin::{self, TauriPlugin},
 };
 use zbus::{
@@ -19,28 +15,28 @@ use crate::SingleInstanceCallback;
 
 struct ConnectionHandle(Connection);
 
-struct SingleInstanceDBus<R:Runtime> {
-	callback:Box<SingleInstanceCallback<R>>,
-	app_handle:AppHandle<R>,
+struct SingleInstanceDBus<R: Runtime> {
+	callback: Box<SingleInstanceCallback<R>>,
+	app_handle: AppHandle<R>,
 }
 
 #[dbus_interface(name = "org.SingleInstance.DBus")]
-impl<R:Runtime> SingleInstanceDBus<R> {
-	fn execute_callback(&mut self, argv:Vec<String>, cwd:String) {
+impl<R: Runtime> SingleInstanceDBus<R> {
+	fn execute_callback(&mut self, argv: Vec<String>, cwd: String) {
 		(self.callback)(&self.app_handle, argv, cwd);
 	}
 }
 
-fn dbus_id(config:Arc<Config>) -> String {
+fn dbus_id(config: Arc<Config>) -> String {
 	config.tauri.bundle.identifier.replace('.', "_").replace('-', "_")
 }
 
-pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
+pub fn init<R: Runtime>(f: Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 	plugin::Builder::new("single-instance")
 		.setup(|app| {
 			let id = dbus_id(app.config());
 
-			let single_instance_dbus = SingleInstanceDBus { callback:f, app_handle:app.clone() };
+			let single_instance_dbus = SingleInstanceDBus { callback: f, app_handle: app.clone() };
 
 			let dbus_name = format!("org.{}.SingleInstance", id);
 
@@ -66,10 +62,7 @@ pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 							"ExecuteCallback",
 							&(
 								std::env::args().collect::<Vec<String>>(),
-								std::env::current_dir()
-									.unwrap_or_default()
-									.to_str()
-									.unwrap_or_default(),
+								std::env::current_dir().unwrap_or_default().to_str().unwrap_or_default(),
 							),
 						);
 					}
@@ -89,7 +82,7 @@ pub fn init<R:Runtime>(f:Box<SingleInstanceCallback<R>>) -> TauriPlugin<R> {
 		.build()
 }
 
-pub fn destroy<R:Runtime, M:Manager<R>>(manager:&M) {
+pub fn destroy<R: Runtime, M: Manager<R>>(manager: &M) {
 	if let Some(connection) = manager.try_state::<ConnectionHandle>() {
 		let dbus_name = format!("org.{}.SingleInstance", dbus_id(manager.config()));
 
